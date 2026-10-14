@@ -11,6 +11,7 @@ st.set_page_config(page_title="SpendWise", page_icon="💰", layout="wide")
 # ✨ Soft & Glam Custom CSS for Streamlit
 st.markdown("""
     <style>
+    /* Desktop Styles (Laptop ke liye) */
     .main { background-color: #FFFFFF; }
     .stApp { background-color: #FFFFFF; }
     h1 { color: #0F172A; font-family: 'Segoe UI', sans-serif; }
@@ -21,6 +22,16 @@ st.markdown("""
     }
     .stButton>button:hover { background-color: #F43F5E; color: white; }
     .stDataFrame { border-radius: 10px; border: 1px solid #E2E8F0; }
+
+    /* Mobile Responsive Styles (Mobile par fonts normal karne ke liye) */
+    @media (max-width: 768px) {
+        h1 { font-size: 1.8rem !important; }
+        h2, h3 { font-size: 1.3rem !important; }
+        p, label, div { font-size: 0.95rem !important; }
+        .stMetric label { font-size: 0.8rem !important; }
+        .stMetric div[data-testid="stMetricValue"] { font-size: 1.5rem !important; }
+        .stButton>button { font-size: 0.9rem !important; padding: 0.4rem 1rem !important; }
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -98,15 +109,25 @@ tab1, tab2 = st.tabs(["📊 Expense List", "📈 Visual Chart"])
 with tab1:
     st.subheader("Recent Expenses")
     if not df.empty:
-        # Display table without index
-        st.dataframe(df[["Date", "Category", "Amount", "Description"]], use_container_width=True, hide_index=True)
+        # ID column ko show kar diya hai taake pata chale kon sa expense hai
+        st.dataframe(df[["ID", "Date", "Category", "Amount", "Description"]], use_container_width=True, hide_index=True)
         
-        # Delete Option
+        # Naya aur Aasan Delete System (Dropdown List)
+        st.markdown("---")
         st.markdown("##### 🗑️ Delete an Expense")
-        delete_id = st.number_input("Enter Expense ID to delete", min_value=1, step=1)
-        if st.button("Delete Selected"):
-            db.delete_expense(delete_id)
-            st.success(f"Expense ID {delete_id} deleted!")
+        
+        # Har expense ka ek option banayenge
+        delete_options = [f"ID {row['ID']}: {row['Category']} - Rs. {row['Amount']} ({row['Date']})" for _, row in df.iterrows()]
+        
+        # Dropdown se select karein
+        selected_option = st.selectbox("Select expense to delete:", delete_options)
+        
+        # Delete Button
+        if st.button("Delete Selected Expense", type="primary"):
+            # ID ko string se nikalna
+            id_to_delete = int(selected_option.split(":")[0].replace("ID ", ""))
+            db.delete_expense(id_to_delete)
+            st.success("Expense deleted successfully!")
             st.rerun()
     else:
         st.info("No expenses found. Add one above!")
@@ -116,15 +137,18 @@ with tab2:
     if not df.empty:
         category_totals = df.groupby("Category")["Amount"].sum()
         
-        fig, ax = plt.subplots(figsize=(6, 4))
+        # 1. Chart ka size chota kar diya hai (width=5, height=4)
+        fig, ax = plt.subplots(figsize=(5, 4))
         colors = ['#FB7185', '#FBBF24', '#A78BFA', '#60A5FA', '#34D399']
         ax.pie(category_totals, labels=category_totals.index, autopct='%1.1f%%', colors=colors, startangle=140, textprops={'color': '#334155', 'fontweight': 'bold'})
         ax.set_title("Expense Distribution by Category", color='#0F172A', fontsize=14, pad=15)
-        st.pyplot(fig)
+        
+        # 2. Chart ko Center mein lane ke liye Columns ka use
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            st.pyplot(fig)
     else:
         st.info("Add some expenses to see the chart!")
-
-st.markdown("---")
 
 # --- SETTINGS & EXPORT ---
 col_set1, col_set2 = st.columns(2)
